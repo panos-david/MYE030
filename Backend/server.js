@@ -4,7 +4,6 @@ const cors = require('cors'); // Import cors
 require('dotenv').config(); // Load environment variables from .env file
 
 const app = express();
-// Use port from environment variable or default to 3001 (changed from 3000)
 const port = process.env.PORT || 3001;
 
 // --- Database Configuration ---
@@ -14,19 +13,17 @@ const pool = new Pool({
   host: process.env.DB_HOST || 'localhost', // Default host
   database: process.env.DB_DATABASE || 'MYE030', // Default database
   password: process.env.DB_PASSWORD || 'root', // Default password
-  port: parseInt(process.env.DB_PORT || '5432', 10), // Ensure port is an integer
+  port: parseInt(process.env.DB_PORT || '5432', 10),
 });
 
-// --- Middleware ---
 // Enable CORS for all origins (adjust for production later)
 app.use(cors());
 // Middleware to parse JSON request bodies
 app.use(express.json());
 
-// --- Helper Functions ---
 
-// Helper function to build dynamic WHERE clauses (enhanced for ranges and specific views)
-function buildWhereClause(queryParams, allowedColumns, viewName = '') { // Add viewName parameter
+// Helper to build dynamic WHERE clauses
+function buildWhereClause(queryParams, allowedColumns, viewName = '') {
     let clause = '';
     const values = [];
     let paramIndex = 1;
@@ -35,10 +32,8 @@ function buildWhereClause(queryParams, allowedColumns, viewName = '') { // Add v
     let yearColumn = null;
     if (viewName === 'scorer_summary') {
         // Special handling for scorer_summary view's year columns
-        // We'll handle startYear/endYear specifically below
     } else if (viewName === 'country_profile') {
         // Special handling for country_profile view's year columns (first/last active)
-        // We'll handle startYear/endYear specifically below
     } else {
          yearColumn = allowedColumns.includes('year') ? 'year' : allowedColumns.includes('tournament_year') ? 'tournament_year' : null;
     }
@@ -85,16 +80,14 @@ function buildWhereClause(queryParams, allowedColumns, viewName = '') { // Add v
              continue; // Move to next query param
         }
 
-        // Handle regular filters (only allow filtering on specific columns)
+        // Handle regular filters (only allows filtering on specific columns)
         if (allowedColumns.includes(key)) {
-            // Modify string matching for case-insensitive match on continent
             if (key === 'continent' && typeof queryParams[key] === 'string') {
                  if (clause === '') clause += ' WHERE '; else clause += ' AND ';
-                 clause += `"${key}" ILIKE $${paramIndex}`; // Use ILIKE for continent
-                 values.push(`%${queryParams[key]}%`); // Add wildcards (optional, adjust if exact match needed but case-insensitive)
+                 clause += `"${key}" ILIKE $${paramIndex}`;
+                 values.push(`%${queryParams[key]}%`); 
                  paramIndex++;
             } else if (typeof queryParams[key] === 'string') {
-                 // Existing ILIKE logic for other string fields
                  if (clause === '') clause += ' WHERE '; else clause += ' AND ';
                  clause += `"${key}" ILIKE $${paramIndex}`;
                  values.push(`%${queryParams[key]}%`); // Add wildcards for partial matching
@@ -116,7 +109,6 @@ function buildWhereClause(queryParams, allowedColumns, viewName = '') { // Add v
 }
 
 // Helper function to build ORDER BY clause
-// Example: /api/view?sort=column1:asc,column2:desc
 function buildOrderByClause(sortParam, allowedColumns) {
     if (!sortParam) return '';
 
@@ -129,7 +121,6 @@ function buildOrderByClause(sortParam, allowedColumns) {
 
         // Only allow sorting on specific columns and valid directions
         if (allowedColumns.includes(column) && ['asc', 'desc'].includes(lowerDirection)) {
-            // Use double quotes for case sensitivity or special characters in column names
             orderByParts.push(`"${column}" ${lowerDirection.toUpperCase()}`);
         }
     });
@@ -144,7 +135,6 @@ app.get('/api', (req, res) => {
   res.json({ message: 'Welcome to the Football Stats API!' });
 });
 
-// --- View Endpoints ---
 
 // Generic handler for simple views with filtering and sorting
 async function handleViewRequest(req, res, viewName, allowedFilterCols, allowedSortCols) {
@@ -159,21 +149,19 @@ async function handleViewRequest(req, res, viewName, allowedFilterCols, allowedS
     const paginationClause = ` LIMIT ${limit} OFFSET ${offset}`;
 
 
-    const query = `SELECT DISTINCT * FROM ${viewName}${clause}${orderBy}${paginationClause}`; // Added DISTINCT
-    const countQuery = `SELECT COUNT(*) FROM ${viewName}${clause}`; // Define countQuery first
+    const query = `SELECT DISTINCT * FROM ${viewName}${clause}${orderBy}${paginationClause}`;
+    const countQuery = `SELECT COUNT(*) FROM ${viewName}${clause}`;
 
     // --- Logging for Country Profiles Limit Issue ---
     if (viewName === 'country_profile') {
         // Log after countQuery is defined
         console.log(`[Country Profiles] Count Query: ${countQuery} with values: ${JSON.stringify(values)}`);
     }
-    // --- End Logging ---
 
     try {
         console.log(`Executing query: ${query} with values: ${JSON.stringify(values)}`); // Log query and values
         const result = await pool.query(query, values);
-        // Also fetch total count for pagination metadata (optional)
-        // const countQuery = `SELECT COUNT(*) FROM ${viewName}${clause}`; // Moved definition up
+
         const countResult = await pool.query(countQuery, values);
         const totalItems = parseInt(countResult.rows[0].count, 10);
 
@@ -200,21 +188,21 @@ async function handleViewRequest(req, res, viewName, allowedFilterCols, allowedS
 
 // Endpoint for Match Details
 app.get('/api/match-details', (req, res) => {
-    const allowedFilters = ['tournament', 'tournament_year', 'home_team', 'away_team', 'match_city', 'match_country', 'startYear', 'endYear']; // Added year filters
+    const allowedFilters = ['tournament', 'tournament_year', 'home_team', 'away_team', 'match_city', 'match_country', 'startYear', 'endYear'];
     const allowedSorts = ['match_date', 'tournament_year', 'home_team', 'away_team', 'home_score', 'away_score'];
     handleViewRequest(req, res, 'match_details', allowedFilters, allowedSorts);
 });
 
 // Endpoint for Goal Details
 app.get('/api/goal-details', (req, res) => {
-    const allowedFilters = ['tournament', 'tournament_year', 'scorer_name', 'scoring_team', 'team_conceded', 'is_penalty', 'is_own_goal', 'startYear', 'endYear']; // Added year filters
+    const allowedFilters = ['tournament', 'tournament_year', 'scorer_name', 'scoring_team', 'team_conceded', 'is_penalty', 'is_own_goal', 'startYear', 'endYear'];
     const allowedSorts = ['match_date', 'tournament_year', 'scorer_name', 'scoring_team', 'goal_minute'];
     handleViewRequest(req, res, 'goal_details', allowedFilters, allowedSorts);
 });
 
 // Endpoint for Tournament Summary
 app.get('/api/tournament-summary', (req, res) => {
-    const allowedFilters = ['tournament', 'year', 'startYear', 'endYear']; // Added year filters
+    const allowedFilters = ['tournament', 'year', 'startYear', 'endYear'];
     const allowedSorts = ['year', 'tournament', 'total_matches', 'total_goals', 'avg_goals_per_match'];
     handleViewRequest(req, res, 'tournament_summary', allowedFilters, allowedSorts);
 });
@@ -310,7 +298,6 @@ app.get('/api/goal-timing', async (req, res) => {
 
 // Endpoint for Country Profiles
 app.get('/api/country-profiles', (req, res) => {
-    // Added continent, region_name, sub_region_name filters
     const allowedFilters = ['country_name', 'continent', 'region_name', 'sub_region_name', 'developed_or_developing', 'startYear', 'endYear'];
     const allowedSorts = [
         'country_name', 'continent', 'region_name', 'sub_region_name', // Added sort options
@@ -319,7 +306,6 @@ app.get('/api/country-profiles', (req, res) => {
         'goal_difference', 'total_score', 'home_wins', 'away_wins',
         'wins_per_active_year', 'score_per_active_year'
     ];
-    // Pass viewName 'country_profile' to handle specific year filters
     handleViewRequest(req, res, 'country_profile', allowedFilters, allowedSorts);
 });
 
@@ -345,7 +331,6 @@ app.get('/api/scorer-summary', (req, res) => {
 app.get('/api/player-goals', async (req, res) => {
     const { scorerName, startYear, endYear, tournament, sort } = req.query;
 
-    // scorerName is no longer required
     // if (!scorerName) {
     //     return res.status(400).json({ error: 'scorerName query parameter is required.' });
     // }
@@ -412,16 +397,13 @@ app.get('/api/player-goals', async (req, res) => {
 
 
     try {
-        // --- REMOVED Logging for Duplication Issue ---
-        // const prePaginationQuery = baseQuery.replace('SELECT', 'SELECT COUNT(*) FROM (SELECT g.goal_id'); // Simple count attempt
+        // const prePaginationQuery = baseQuery.replace('SELECT', 'SELECT COUNT(*) FROM (SELECT g.goal_id');
         // const prePaginationCountResult = await pool.query(prePaginationQuery + ') AS subquery', values);
         // console.log(`[Player Goals] Rows before pagination for query ${baseQuery} with values ${JSON.stringify(values)}: ${prePaginationCountResult.rows[0]?.count ?? 'Error counting'}`);
-        // --- End Logging ---
 
         console.log(`Executing player goals query: ${query} with values: ${values}`);
         const result = await pool.query(query, values);
 
-        // Optional: Get total count for pagination without limit/offset
         let countQuery = `
             SELECT COUNT(*)
             FROM goals g
@@ -460,7 +442,6 @@ app.get('/api/player-goals', async (req, res) => {
 });
 
 // Endpoint to search for specific matches
-// Example: /api/match-list?homeTeam=Brazil&awayTeam=Argentina&startYear=2010
 app.get('/api/match-list', async (req, res) => {
     const { homeTeam, awayTeam, team, tournament, startYear, endYear, city, country, sort } = req.query;
 
@@ -513,8 +494,7 @@ app.get('/api/match-list', async (req, res) => {
     query += paginationClause;
 
     try {
-        // --- REMOVED Logging for Duplication Issue ---
-        // const prePaginationQuery = baseQuery.replace('SELECT', 'SELECT COUNT(*) FROM (SELECT m.match_id'); // Simple count attempt
+        // const prePaginationQuery = baseQuery.replace('SELECT', 'SELECT COUNT(*) FROM (SELECT m.match_id');
         // const prePaginationCountResult = await pool.query(prePaginationQuery + ') AS subquery', values);
         // console.log(`[Match List] Rows before pagination for query ${baseQuery} with values ${JSON.stringify(values)}: ${prePaginationCountResult.rows[0]?.count ?? 'Error counting'}`);
         // --- End Logging ---
@@ -551,7 +531,6 @@ app.get('/api/match-list', async (req, res) => {
     }
 });
 
-// --- NEW Endpoints for Specific Features ---
 
 // Endpoint for Player Goal Timeline
 app.get('/api/player-goal-timeline', async (req, res) => {
@@ -596,7 +575,6 @@ app.get('/api/player-goal-timeline', async (req, res) => {
     } catch (err) {
         // --- Logging for Load Failure ---
         console.error('[Player Goal Timeline] Error executing query:', err.stack);
-        // --- End Logging ---
         res.status(500).json({ error: 'Internal Server Error', details: err.message });
     }
 });
@@ -662,7 +640,6 @@ app.get('/api/country-wdl-timeline', async (req, res) => {
 // Endpoint for Global Top 10 Stats
 app.get('/api/top-countries/:metric', async (req, res) => {
     const { metric } = req.params;
-    // Add region_name, sub_region_name to filters
     const { startYear, endYear, continent, region_name, sub_region_name } = req.query;
     const limit = 10; // Hardcoded top 10
 
@@ -713,7 +690,6 @@ app.get('/api/top-countries/:metric', async (req, res) => {
     if (sub_region_name) { whereClauses.push(`c.sub_region_name ILIKE $${paramIndex++}`); values.push(`%${sub_region_name}%`); }
 
     // Year filtering still complex here, requires joining matches or different view.
-    // Keep year filtering omitted for this endpoint for now.
 
     if (whereClauses.length > 0) {
         query += ' WHERE ' + whereClauses.join(' AND ');
@@ -776,7 +752,6 @@ app.get('/api/country-activity', async (req, res) => {
     }
 });
 
-// --- NEW Endpoints for Dropdowns ---
 
 // Endpoint to get distinct tournament names
 app.get('/api/distinct-tournaments', async (req, res) => {
@@ -952,8 +927,5 @@ process.on('unhandledRejection', (reason, promise) => {
 // Handle uncaught exceptions (optional but good practice)
 process.on('uncaughtException', (err, origin) => {
   console.error(`Caught exception: ${err}\n` + `Exception origin: ${origin}`);
-  // Perform cleanup if necessary and exit
-  // Consider closing pool and server here as well, similar to SIGINT
-  // but be careful about async operations in uncaughtException handlers
   process.exit(1); // Mandatory exit after uncaught exception
 });
