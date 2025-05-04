@@ -69,7 +69,6 @@ function App() {
       <div className="chart-section">
         <GoalTimingChart />
       </div>
-      {/* Add sections for other view-based components */}
 
     </>
   );
