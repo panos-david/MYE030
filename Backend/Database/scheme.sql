@@ -31,7 +31,7 @@ CREATE TABLE countries (
     lldc BOOLEAN,
     ldc BOOLEAN,
     area_sq_km INT,
-    population BIGINT -- Use BIGINT for potentially large populations
+    population BIGINT 
 );
 
 -- Create matches table with foreign keys and unique constraint
@@ -46,7 +46,7 @@ CREATE TABLE matches (
     city VARCHAR(255),
     country_id INT REFERENCES countries(country_id), -- Host country
     neutral BOOLEAN NOT NULL,
-    -- Add constraint to prevent duplicate matches on the same date between the same teams
+    --  constraint to prevent duplicate matches on the same date between the same teams
     CONSTRAINT unique_match UNIQUE (match_date, home_team_id, away_team_id)
 );
 
@@ -68,8 +68,7 @@ CREATE TABLE goals (
     minute INT,
     own_goal BOOLEAN NOT NULL DEFAULT FALSE,
     penalty BOOLEAN NOT NULL DEFAULT FALSE
-    -- Optional: Add a unique constraint if needed, e.g., on (match_id, minute, scorer, team_id)
-    -- CONSTRAINT unique_goal UNIQUE (match_id, minute, scorer, team_id) -- Be careful with this, might be too strict
+
 );
 
 -- Create penalty_shootouts table
@@ -80,7 +79,6 @@ CREATE TABLE penalty_shootouts (
     first_shooter_id INT REFERENCES countries(country_id) -- Can be NULL if unknown
 );
 
--- Optional: Add indexes for frequently queried columns
 CREATE INDEX idx_matches_date ON matches(match_date);
 CREATE INDEX idx_matches_home_team ON matches(home_team_id);
 CREATE INDEX idx_matches_away_team ON matches(away_team_id);
